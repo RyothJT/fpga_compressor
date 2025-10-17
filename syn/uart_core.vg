@@ -1,0 +1,39 @@
+`timescale 1ns / 1ps
+//////////////////////////////////////////////////////////////////////////////////
+// Company: 
+// Engineer: 
+// 
+// Create Date: 10/16/2025 08:53:58 AM
+// Design Name: 
+// Module Name: uart_core
+// Project Name: 
+// Target Devices: 
+// Tool Versions: 
+// Description: 
+// 
+// Dependencies: 
+// 
+// Revision:
+// Revision 0.01 - File Created
+// Additional Comments:
+// 
+//////////////////////////////////////////////////////////////////////////////////
+
+// implements baud rate generator, tx and rx modules, and fifo buffering
+
+module uart_core(
+        input clk,
+        input rst,
+        input RsRx,
+        output RsTx
+    );
+    
+wire baud;
+
+uart_baud_gen baud_gen (
+    .clk(clk),
+    .rst(rst),
+    .baud(baud)
+);    
+    
+endmodule

@@ -1,0 +1,33 @@
+`timescale 1ns / 1ps
+
+module uart_baud_gen_tb(
+
+    );
+    
+reg clk = 1;
+reg rst = 1;
+
+integer sim_counter = 0;
+
+wire baud;
+
+uart_baud_gen test (
+    .clk(clk),
+    .rst(rst),
+    .baud(baud)
+);
+
+always #5 clk = !clk;
+
+always @(posedge baud) sim_counter <= sim_counter + 1;
+
+initial begin
+    #1000;
+    rst = 0;
+    
+    while (sim_counter < 5) #1000;
+    
+    $finish;
+end
+
+endmodule

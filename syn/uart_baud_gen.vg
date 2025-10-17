@@ -1,0 +1,46 @@
+`timescale 1ns / 1ps
+//////////////////////////////////////////////////////////////////////////////////
+// Company: 
+// Engineer: 
+// 
+// Create Date: 10/16/2025 08:59:52 AM
+// Design Name: 
+// Module Name: uart_baud_gen
+// Project Name: 
+// Target Devices: 
+// Tool Versions: 
+// Description: 
+// 
+// Dependencies: 
+// 
+// Revision:
+// Revision 0.01 - File Created
+// Additional Comments:
+// 
+//////////////////////////////////////////////////////////////////////////////////
+
+module uart_baud_gen(
+    input clk,
+    input rst,
+    output reg baud
+);
+
+localparam integer DIV = 10416; // 10416::9600 baud, 
+reg [31:0] counter;
+
+always @(posedge clk) begin
+    if (rst) begin
+        counter <= DIV/2 - 1;
+        baud <= 1;
+    end
+    else if (counter == DIV/2 - 1) begin
+        baud <= !baud;
+        counter <= 0;
+    end
+    else begin 
+        counter <= counter + 1;
+    end
+end
+
+endmodule
+

@@ -1,0 +1,85 @@
+`timescale 1ns / 1ps
+//////////////////////////////////////////////////////////////////////////////////
+// Company: 
+// Engineer: 
+// 
+// Create Date: 10/16/2025 08:58:28 AM
+// Design Name: 
+// Module Name: uart_rx
+// Project Name: 
+// Target Devices: 
+// Tool Versions: 
+// Description: 
+// 
+// Dependencies: 
+// 
+// Revision:
+// Revision 0.01 - File Created
+// Additional Comments:
+// 
+//////////////////////////////////////////////////////////////////////////////////
+
+
+module uart_rx(
+        input clk,
+        input baud,
+        input rst,
+        input RsRx,
+        output reg [7:0] rx_data
+    );
+    
+(* fsm_safe_state = "default" *) reg [2:0] state;
+
+localparam DATA_BITS = 8;
+    
+localparam  IDLE = 3'b000,
+            START = 3'b001,
+            DATA = 3'b010,
+            PARITY = 3'b011,
+            STOP = 3'b100,
+            ERROR = 3'b101;
+
+wire start_bit_detected;
+wire half_bit_elapsed;
+reg [2:0] next_state;
+reg [2:0] bit_count;
+
+assign start_bit_detected = !RsRx;
+assign half_bit_elapsed = !baud;
+
+always @(*) begin
+    case(state)
+        IDLE: next_state = (start_bit_detected) ?  START : IDLE;
+        START: next_state = (half_bit_elapsed) ?  START : IDLE;
+        DATA: next_state = (bit_count == DATA_BITS - 1) ? PARITY : DATA;
+        PARITY: next_state = STOP;
+        STOP: next_state = IDLE;
+        default: next_state = IDLE;
+    endcase
+end
+
+always @(posedge clk) begin
+    if (rst) begin
+        state <= IDLE;
+    end
+    else state <= next_state;
+end
+    
+always @(posedge baud) begin
+    case (state)
+        IDLE: ;
+        START: begin
+            bit_count <= 0;
+            rx_data <= 0;
+        end
+        DATA: begin
+            bit_count <= bit_count + 1;
+            rx_data[bit_count] = RsRx;
+        end
+        PARITY: begin
+            
+        end
+    endcase
+end
+    
+endmodule
