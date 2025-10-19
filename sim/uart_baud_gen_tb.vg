@@ -31,7 +31,7 @@ initial begin
     rst = 0;
     #BAUD_DIV;
     RsRx = 0;
-    #(BAUD_DIV*19.1);
+    #(BAUD_DIV*15.5);
     RsRx = 1;
     #BAUD_DIV;
     repeat(5) begin
