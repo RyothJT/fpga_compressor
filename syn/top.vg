@@ -2,8 +2,43 @@
 
 module top(
         input clk,
-        input rst,
+        input btnC,
         input RsRx,
-        output RsTx
-    );
+        output RsTx,
+        output [15:0] led
+        
+        ,
+        input btnU,
+        input [7:0] sw
+);
+
+//uart_core uart(
+//    .clk(clk),
+//    .rst(btnC),
+//    .RsRx(RsRx),
+//    .RsTx(RsTx),
+//    .rx_data(led[7:0])
+//);
+
+wire valid;
+
+uart_rx rx(
+    .clk(clk),
+    .rst(rst),
+    .RsRx(RsRx),
+    .rx_data(led[7:0]),
+    .valid(valid)
+);
+
+uart_tx tx(
+    .clk(clk),
+    .rst(rst),
+    .tx_start(btnU),
+    .tx_data(sw[7:0]),
+    .RsTx(RsTx),
+    .busy(busy)
+);
+
+assign led[15:8] = 8'hAA;
+
 endmodule

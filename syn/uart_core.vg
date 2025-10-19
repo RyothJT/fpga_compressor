@@ -25,15 +25,29 @@ module uart_core(
         input clk,
         input rst,
         input RsRx,
-        output RsTx
-    );
+        output wire RsTx,
+        output [7:0] rx_data
+);
     
-wire baud;
+wire valid;
 
-uart_baud_gen baud_gen (
+uart_rx rx(
     .clk(clk),
     .rst(rst),
-    .baud(baud)
-);    
+    .RsRx(RsRx),
+    .rx_data(rx_data),
+    .valid(valid)
+);
+
+uart_tx tx(
+    .clk(clk),
+    .rst(rst),
+    .tx_start(btnU),
+    .tx_data(sw[7:0]),
+    .RsTx(RsTx),
+    .busy(busy)
+);
+
+assign RsTx = 1;
     
 endmodule

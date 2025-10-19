@@ -1,28 +1,93 @@
 `timescale 1ns / 1ps
-//////////////////////////////////////////////////////////////////////////////////
-// Company: 
-// Engineer: 
-// 
-// Create Date: 10/16/2025 08:58:28 AM
-// Design Name: 
-// Module Name: uart_tx
-// Project Name: 
-// Target Devices: 
-// Tool Versions: 
-// Description: 
-// 
-// Dependencies: 
-// 
-// Revision:
-// Revision 0.01 - File Created
-// Additional Comments:
-// 
-//////////////////////////////////////////////////////////////////////////////////
-
 
 module uart_tx(
-        input baud,
-        input rst,
-        output RsTx
-    );
+    input clk,
+    input rst,
+    input tx_start,
+    input [7:0] tx_data,
+    output reg RsTx,
+    output reg busy
+);
+
+localparam DATA_BITS = 8,
+           BAUD_RATE = 9600,
+           CLK_FREQ  = 100_000_000;
+
+wire baud;
+wire baud_tick;
+reg baud_rst;
+
+uart_baud_gen #(
+    .BAUD_RATE(BAUD_RATE),
+    .CLK_FREQ(CLK_FREQ)
+) baud_gen (
+    .clk(clk),
+    .rst(baud_rst),
+    .baud(baud),
+    .baud_tick(baud_tick)
+);
+
+reg [2:0] state;
+reg [3:0] bit_counter;
+reg [7:0] latched_data;
+
+localparam IDLE  = 3'b000,
+           START = 3'b001,
+           DATA  = 3'b010,
+           STOP  = 3'b011;
+
+always @(posedge clk or posedge rst) begin
+    if (rst) begin
+        state        <= IDLE;
+        RsTx         <= 1;
+        busy         <= 0;
+        baud_rst     <= 1;
+        bit_counter  <= 0;
+        latched_data <= 0;
+    end
+    else begin
+        case (state)
+            IDLE: begin
+                RsTx     <= 1;
+                busy     <= 0;
+                baud_rst <= 1;
+                if (tx_start) begin
+                    latched_data <= tx_data;
+                    state        <= START;
+                    baud_rst <= 0;
+                    busy <= 1;
+                end
+            end
+
+            START: begin
+                RsTx <= 0;
+                busy <= 1;
+                if (baud_tick) begin
+                    state <= DATA;
+                    bit_counter <= 0;
+                end
+            end
+
+            DATA: begin
+                RsTx <= latched_data[bit_counter];
+                if (baud_tick) begin
+                    bit_counter <= bit_counter + 1;
+                    if (bit_counter == DATA_BITS - 1)
+                        state <= STOP;
+                end
+            end
+
+            STOP: begin
+                RsTx <= 1;
+                if (baud_tick) begin
+                    state <= IDLE;
+                    busy <= 0;
+                end
+            end
+
+            default: state <= IDLE;
+        endcase
+    end
+end
+
 endmodule

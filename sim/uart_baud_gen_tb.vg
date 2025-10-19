@@ -1,32 +1,48 @@
 `timescale 1ns / 1ps
 
-module uart_baud_gen_tb(
-
-    );
+module uart_baud_gen_tb();
     
+localparam BAUD_DIV = 100_000_000 / 9600 * 10;
+
 reg clk = 1;
 reg rst = 1;
+wire [15:0] led;
+reg RsRx = 1;
 
 integer sim_counter = 0;
 
-wire baud;
+wire RsTx;
 
-uart_baud_gen test (
+uart_core uart(
     .clk(clk),
     .rst(rst),
-    .baud(baud)
+    .RsRx(RsRx),
+    .RsTx(RsTx),
+    .rx_data(led[7:0])
 );
 
 always #5 clk = !clk;
 
-always @(posedge baud) sim_counter <= sim_counter + 1;
-
 initial begin
-    #1000;
+    #BAUD_DIV;
     rst = 0;
-    
-    while (sim_counter < 5) #1000;
-    
+    #BAUD_DIV;
+    repeat(5) begin
+        RsRx = 0;
+        #BAUD_DIV
+        RsRx = 1;
+        #BAUD_DIV
+        repeat(3) begin
+            RsRx = 0;
+            #BAUD_DIV;
+            RsRx = 1;
+            #BAUD_DIV;
+        end
+        RsRx = 0;
+        #BAUD_DIV;
+        RsRx = 1;
+        #(BAUD_DIV*1);
+    end
     $finish;
 end
 

@@ -22,39 +22,61 @@
 
 module uart_rx(
         input clk,
-        input baud,
         input rst,
         input RsRx,
-        output reg [7:0] rx_data
-    );
-    
-(* fsm_safe_state = "default" *) reg [2:0] state;
+        output reg [7:0] rx_data,
+        output reg valid
+);
 
-localparam DATA_BITS = 8;
+localparam DATA_BITS = 8,
+           BAUD_RATE = 9600,
+           DIV_SAMPLE = 16,
+           MID_SAMPLE = DIV_SAMPLE / 2,
+           CLK_FREQ = 100_000_000;
+
+wire baudx16;
+
+uart_baud_gen #(
+    .BAUD_RATE(BAUD_RATE),
+    .CLK_FREQ(CLK_FREQ),
+    .OVERSAMPLE(DIV_SAMPLE)
+) baud_gen (
+    .clk(clk),
+    .rst(rst),
+    .baud(baudx16)
+);
     
+
+
+
+
 localparam  IDLE = 3'b000,
             START = 3'b001,
             DATA = 3'b010,
-            PARITY = 3'b011,
-            STOP = 3'b100,
-            ERROR = 3'b101;
+            STOP = 3'b011,
+            ERROR = 3'b100;
 
 wire start_bit_detected;
 wire half_bit_elapsed;
+wire last_data_recieved;
+
+(* fsm_safe_state = "reset_state" *) reg [2:0] state;
 reg [2:0] next_state;
-reg [2:0] bit_count;
+reg [3:0] bit_counter;
+reg [3:0] sample_counter;
+
 
 assign start_bit_detected = !RsRx;
-assign half_bit_elapsed = !baud;
+assign half_bit_elapsed = sample_counter == (MID_SAMPLE - 1);
+assign last_data_recieved = bit_counter == (DATA_BITS);
 
 always @(*) begin
     case(state)
-        IDLE: next_state = (start_bit_detected) ?  START : IDLE;
-        START: next_state = (half_bit_elapsed) ?  START : IDLE;
-        DATA: next_state = (bit_count == DATA_BITS - 1) ? PARITY : DATA;
-        PARITY: next_state = STOP;
-        STOP: next_state = IDLE;
-        default: next_state = IDLE;
+        IDLE: next_state <= start_bit_detected ?  START : IDLE;
+        START: next_state <= (sample_counter == DIV_SAMPLE - 1) ?  DATA : START;
+        DATA: next_state <= last_data_recieved ? STOP : DATA;
+        STOP: next_state <= half_bit_elapsed ? IDLE : STOP;
+        default: next_state <= IDLE;
     endcase
 end
 
@@ -65,20 +87,30 @@ always @(posedge clk) begin
     else state <= next_state;
 end
     
-always @(posedge baud) begin
+always @(posedge baudx16) begin
     case (state)
-        IDLE: ;
+        // Like a reset state, but these variables are just for counting
+        IDLE: begin
+            bit_counter <= 0;
+            sample_counter <= 0;
+        end
         START: begin
-            bit_count <= 0;
+            sample_counter <= sample_counter + 1;
+            bit_counter <= 0;
             rx_data <= 0;
         end
         DATA: begin
-            bit_count <= bit_count + 1;
-            rx_data[bit_count] = RsRx;
+            sample_counter <= sample_counter + 1;
+            if (half_bit_elapsed) begin
+                rx_data[bit_counter] <= RsRx;
+                bit_counter <= bit_counter + 1;
+            end
         end
-        PARITY: begin
-            
+        STOP: begin
+            sample_counter <= sample_counter + 1;
+            // check stop bit, mark valid if high. Go to error and do other stuff otherwise.
         end
+        default: ; //error probably
     endcase
 end
     

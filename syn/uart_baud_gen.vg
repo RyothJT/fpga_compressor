@@ -19,25 +19,38 @@
 // 
 //////////////////////////////////////////////////////////////////////////////////
 
-module uart_baud_gen(
+module uart_baud_gen #(
+    parameter BAUD_RATE = 9600,         // target baud rate
+    parameter CLK_FREQ  = 100_000_000,  // system clock frequency
+    parameter OVERSAMPLE = 1            // oversampling factor
+)(
     input clk,
     input rst,
-    output reg baud
+    output reg baud,
+    output reg baud_tick
 );
 
-localparam integer DIV = 10416; // 10416::9600 baud, 
+localparam DIV = CLK_FREQ / BAUD_RATE / OVERSAMPLE; // 10416::9600 baud, 16x sampling
 reg [31:0] counter;
 
 always @(posedge clk) begin
     if (rst) begin
-        counter <= DIV/2 - 1;
         baud <= 1;
+        baud_tick <= 0;
+        counter <= 0;
     end
     else if (counter == DIV/2 - 1) begin
-        baud <= !baud;
+        baud_tick <= 0;
+        baud <= 0;
+        counter <= counter + 1;
+    end
+    else if (counter == DIV - 1) begin
+        baud <= 1;
+        baud_tick <= 1;
         counter <= 0;
     end
     else begin 
+        baud_tick <= 0;
         counter <= counter + 1;
     end
 end
