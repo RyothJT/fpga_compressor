@@ -20,19 +20,34 @@
 //////////////////////////////////////////////////////////////////////////////////
 
 
-module uart_rx(
+module uart_rx #(
+    parameter ENABLE_ERRORS = 1
+)(
         input clk,
         input rst,
         input RsRx,
         output reg [7:0] rx_data,
-        output reg valid
+        output reg valid,
+        
+        output wire [2:0] status
 );
+
+generate
+    if (ENABLE_ERRORS) begin
+        assign status = {framing_error, overrun_error, break_condition};
+    end
+    else if (!ENABLE_ERRORS) begin
+        // tie unused outputs to 0
+        assign status = 0;
+    end
+endgenerate
 
 localparam DATA_BITS = 8,
            BAUD_RATE = 9600,
            DIV_SAMPLE = 16,
            MID_SAMPLE = DIV_SAMPLE / 2,
-           CLK_FREQ = 100_000_000;
+           CLK_FREQ = 100_000_000,
+           FRAME_LENGTH = (1 + DATA_BITS + 1) * DIV_SAMPLE;
 
 wire baudx16;
 
@@ -45,10 +60,6 @@ uart_baud_gen #(
     .rst(rst),
     .baud(baudx16)
 );
-    
-
-
-
 
 localparam  IDLE = 3'b000,
             START = 3'b001,
@@ -65,9 +76,13 @@ reg [2:0] next_state;
 reg [3:0] bit_counter;
 reg [3:0] sample_counter;
 
+reg framing_error;
+reg overrun_error;
+reg break_condition;
+reg [7:0] break_counter;
 
 assign start_bit_detected = !RsRx;
-assign half_bit_elapsed = sample_counter == (MID_SAMPLE - 1);
+assign half_bit_elapsed = sample_counter == (MID_SAMPLE);
 assign last_data_recieved = bit_counter == (DATA_BITS);
 
 always @(*) begin
@@ -75,7 +90,7 @@ always @(*) begin
         IDLE: next_state <= start_bit_detected ?  START : IDLE;
         START: next_state <= (sample_counter == DIV_SAMPLE - 1) ?  DATA : START;
         DATA: next_state <= last_data_recieved ? STOP : DATA;
-        STOP: next_state <= half_bit_elapsed ? IDLE : STOP;
+        STOP: next_state <= (bit_counter == 0) ? IDLE : STOP;
         default: next_state <= IDLE;
     endcase
 end
@@ -88,30 +103,63 @@ always @(posedge clk) begin
 end
     
 always @(posedge baudx16) begin
-    case (state)
-        // Like a reset state, but these variables are just for counting
-        IDLE: begin
-            bit_counter <= 0;
-            sample_counter <= 0;
+    if (rst) begin
+        rx_data <= 8'b0;
+        valid <= 0;
+        bit_counter <= 0;
+        sample_counter <= 0;
+        framing_error <= 0;
+        overrun_error <= 0;
+        break_condition <= 0;
+        break_counter <= 0;
+    end
+    else begin
+        // Break error checking
+        if (RsRx) begin
+            break_counter <= 0;
+            break_condition <= 0;
         end
-        START: begin
-            sample_counter <= sample_counter + 1;
-            bit_counter <= 0;
-            rx_data <= 0;
-        end
-        DATA: begin
-            sample_counter <= sample_counter + 1;
-            if (half_bit_elapsed) begin
-                rx_data[bit_counter] <= RsRx;
-                bit_counter <= bit_counter + 1;
+        else begin
+            if (break_counter == FRAME_LENGTH) begin
+                break_condition <= 1;
             end
+            else break_counter <= break_counter + 1;
         end
-        STOP: begin
-            sample_counter <= sample_counter + 1;
-            // check stop bit, mark valid if high. Go to error and do other stuff otherwise.
-        end
-        default: ; //error probably
-    endcase
+    
+        // State logic
+        case (state)
+            // Like a reset state, but these variables are just for counting
+            IDLE: begin
+                bit_counter <= 0;
+                sample_counter <= 0;
+            end
+            START: begin // setup for half bit sampling and clear error flags
+                sample_counter <= sample_counter + 1;
+                bit_counter <= 0;
+    //            rx_data <= 0;
+                
+                framing_error <= 0;
+                overrun_error <= 0;
+            end
+            DATA: begin
+                sample_counter <= sample_counter + 1;
+                if (half_bit_elapsed) begin
+                    rx_data[bit_counter] <= RsRx;
+                    bit_counter <= bit_counter + 1;
+                end
+            end
+            STOP: begin
+                sample_counter <= sample_counter + 1;
+                // Check if RsRx is high at midpoint
+                if (half_bit_elapsed) begin
+                    bit_counter <= 0;
+                    valid <= RsRx;
+                    if (!RsRx) framing_error <= 1;
+                end
+            end
+            default: ; //error probably
+        endcase
+    end
 end
     
 endmodule

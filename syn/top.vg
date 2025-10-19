@@ -22,23 +22,24 @@ module top(
 
 wire valid;
 
-uart_rx rx(
+uart_rx #(
+    .ENABLE_ERRORS(1)
+)rx(
     .clk(clk),
-    .rst(rst),
+    .rst(btnC),
     .RsRx(RsRx),
     .rx_data(led[7:0]),
-    .valid(valid)
+    .valid(led[12]),
+    .status(led[15:13])
 );
 
 uart_tx tx(
     .clk(clk),
-    .rst(rst),
+    .rst(btnC),
     .tx_start(btnU),
     .tx_data(sw[7:0]),
     .RsTx(RsTx),
     .busy(busy)
 );
-
-assign led[15:8] = 8'hAA;
 
 endmodule

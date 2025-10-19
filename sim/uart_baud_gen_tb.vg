@@ -6,19 +6,22 @@ localparam BAUD_DIV = 100_000_000 / 9600 * 10;
 
 reg clk = 1;
 reg rst = 1;
-wire [15:0] led;
 reg RsRx = 1;
+
+wire [7:0] rx_data;
+wire [2:0] status;
 
 integer sim_counter = 0;
 
-wire RsTx;
-
-uart_core uart(
+uart_rx #(
+    .ENABLE_ERRORS(1)
+) rx (
     .clk(clk),
     .rst(rst),
     .RsRx(RsRx),
-    .RsTx(RsTx),
-    .rx_data(led[7:0])
+    .rx_data(rx_data),
+    .valid(valid),
+    .status(status)
 );
 
 always #5 clk = !clk;
@@ -26,6 +29,10 @@ always #5 clk = !clk;
 initial begin
     #BAUD_DIV;
     rst = 0;
+    #BAUD_DIV;
+    RsRx = 0;
+    #(BAUD_DIV*19.1);
+    RsRx = 1;
     #BAUD_DIV;
     repeat(5) begin
         RsRx = 0;
