@@ -31,7 +31,7 @@ module uart_baud_gen #(
 );
 
 localparam DIV = CLK_FREQ / BAUD_RATE / OVERSAMPLE; // 10416::9600 baud, 16x sampling
-reg [31:0] counter;
+reg [($clog2(DIV) - 1):0] counter;
 
 always @(posedge clk) begin
     if (rst) begin

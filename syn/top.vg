@@ -23,7 +23,8 @@ module top(
 wire valid;
 
 uart_rx #(
-    .ENABLE_ERRORS(1)
+    .ENABLE_ERRORS(1),
+    .BAUD_RATE(115200)
 )rx(
     .clk(clk),
     .rst(btnC),
@@ -33,7 +34,9 @@ uart_rx #(
     .status(led[15:13])
 );
 
-uart_tx tx(
+uart_tx #(
+    .BAUD_RATE(115200)
+) tx (
     .clk(clk),
     .rst(btnC),
     .tx_start(btnU),
@@ -41,5 +44,7 @@ uart_tx tx(
     .RsTx(RsTx),
     .busy(busy)
 );
+
+
 
 endmodule

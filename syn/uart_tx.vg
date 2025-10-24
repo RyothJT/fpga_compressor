@@ -1,6 +1,11 @@
 `timescale 1ns / 1ps
 
-module uart_tx(
+module uart_tx #(
+    parameter DATA_BITS = 8,
+    parameter BAUD_RATE = 9600,
+    parameter CLK_FREQ = 100_000_000,
+    parameter PARITY_EN = 0
+)(
     input clk,
     input rst,
     input tx_start,
@@ -8,10 +13,6 @@ module uart_tx(
     output reg RsTx,
     output reg busy
 );
-
-localparam DATA_BITS = 8,
-           BAUD_RATE = 9600,
-           CLK_FREQ  = 100_000_000;
 
 wire baud;
 wire baud_tick;

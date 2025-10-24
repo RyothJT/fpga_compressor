@@ -21,16 +21,20 @@
 
 
 module uart_rx #(
-    parameter ENABLE_ERRORS = 1
+    parameter ENABLE_ERRORS = 1,
+    parameter DATA_BITS = 8,
+    parameter BAUD_RATE = 9600,
+    parameter CLK_FREQ = 100_000_000,
+    parameter PARITY_EN = 0
 )(
-        input clk,
-        input rst,
-        input RsRx,
-        input buffer_ack,
-        output reg [7:0] rx_data,
-        output reg valid,
-        
-        output wire [2:0] status
+    input clk,
+    input rst,
+    input RsRx,
+    input buffer_ack,
+    output reg [7:0] rx_data,
+    output reg valid,
+    
+    output wire [2:0] status
 );
 
 generate
@@ -43,11 +47,8 @@ generate
     end
 endgenerate
 
-localparam DATA_BITS = 8,
-           BAUD_RATE = 9600,
-           DIV_SAMPLE = 16,
+localparam DIV_SAMPLE = 16,
            MID_SAMPLE = DIV_SAMPLE / 2,
-           CLK_FREQ = 100_000_000,
            FRAME_LENGTH = (1 + DATA_BITS + 1) * DIV_SAMPLE;
 
 wire baud16_tick;
