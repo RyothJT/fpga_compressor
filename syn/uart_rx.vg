@@ -31,7 +31,7 @@ module uart_rx #(
     input rst,
     input RsRx,
     input buffer_ack,
-    output reg [7:0] rx_data,
+    output reg [(DATA_BITS - 1):0] rx_data,
     output reg valid,
     
     output wire [2:0] status

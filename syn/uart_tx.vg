@@ -9,7 +9,7 @@ module uart_tx #(
     input clk,
     input rst,
     input tx_start,
-    input [7:0] tx_data,
+    input [(DATA_BITS - 1):0] tx_data,
     output reg RsTx,
     output reg busy
 );
@@ -30,14 +30,14 @@ uart_baud_gen #(
 
 reg [2:0] state;
 reg [3:0] bit_counter;
-reg [7:0] latched_data;
+reg [(DATA_BITS - 1):0] latched_data;
 
 localparam IDLE  = 3'b000,
            START = 3'b001,
            DATA  = 3'b010,
            STOP  = 3'b011;
 
-always @(posedge clk or posedge rst) begin
+always @(posedge clk) begin
     if (rst) begin
         state        <= IDLE;
         RsTx         <= 1;
