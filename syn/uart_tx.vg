@@ -3,28 +3,24 @@
 module uart_tx #(
     parameter DATA_BITS = 8,
     parameter BAUD_RATE = 9600,
-    parameter CLK_FREQ = 100_000_000,
-    parameter PARITY_EN = 0
+    parameter CLK_FREQ  = 100_000_000
 )(
-    input clk,
-    input rst,
-    input tx_start,
-    input [(DATA_BITS - 1):0] tx_data,
-    output reg RsTx,
-    output reg busy
+    input  wire clk,
+    input  wire rst,
+    input  wire tx_start,
+    input  wire [(DATA_BITS - 1):0] tx_data,
+    output reg  RsTx,
+    output wire busy
 );
 
-wire baud;
 wire baud_tick;
-reg baud_rst;
 
 uart_baud_gen #(
     .BAUD_RATE(BAUD_RATE),
     .CLK_FREQ(CLK_FREQ)
 ) baud_gen (
     .clk(clk),
-    .rst(baud_rst),
-    .baud(baud),
+    .rst(rst),
     .baud_tick(baud_tick)
 );
 
@@ -37,34 +33,28 @@ localparam IDLE  = 3'b000,
            DATA  = 3'b010,
            STOP  = 3'b011;
 
+assign busy = (state != IDLE);
+
 always @(posedge clk) begin
     if (rst) begin
         state        <= IDLE;
         RsTx         <= 1;
-        busy         <= 0;
-        baud_rst     <= 1;
         bit_counter  <= 0;
         latched_data <= 0;
-    end
-    else begin
+    end else begin
         case (state)
             IDLE: begin
-                RsTx     <= 1;
-                busy     <= 0;
-                baud_rst <= 1;
+                RsTx <= 1;
                 if (tx_start) begin
                     latched_data <= tx_data;
                     state        <= START;
-                    baud_rst <= 0;
-                    busy <= 1;
                 end
             end
 
             START: begin
                 RsTx <= 0;
-                busy <= 1;
                 if (baud_tick) begin
-                    state <= DATA;
+                    state       <= DATA;
                     bit_counter <= 0;
                 end
             end
@@ -80,13 +70,11 @@ always @(posedge clk) begin
 
             STOP: begin
                 RsTx <= 1;
+                // Deassert busy immediately after stop bit
                 if (baud_tick) begin
-                    state <= IDLE;
-                    busy <= 0;
+                    state <= IDLE;  // Ends exactly on the stop bit
                 end
             end
-
-            default: state <= IDLE;
         endcase
     end
 end

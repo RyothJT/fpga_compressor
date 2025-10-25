@@ -1,0 +1,88 @@
+`timescale 1ns / 1ps
+
+module buffer_test_top(
+    input clk,
+    input btnC,    // reset
+    input btnD,    // trigger TX send
+    input RsRx,
+    output RsTx,
+    output [15:0] led
+);
+
+localparam BAUD_RATE = 115200;
+
+// Internal signals
+wire valid_out;
+wire rx_valid;
+wire [7:0] tx_data;
+wire [7:0] rx_data;
+wire busy;
+wire rst;
+reg send_trigger;
+reg btnD_prev;
+
+// Assign reset
+assign rst = btnC;
+assign led[7:0] = rx_data;
+assign led[12] = rx_valid;
+
+// UART RX
+uart_rx #(
+    .ENABLE_ERRORS(1),
+    .BAUD_RATE(BAUD_RATE)
+) rx (
+    .clk(clk),
+    .rst(rst),
+    .RsRx(RsRx),
+    .rx_data(rx_data),
+    .valid_out(rx_valid),
+    .status(led[15:13])
+);
+
+// UART input buffer
+uart_input_buffer uut (
+    .clk(clk),
+    .rst(rst),
+    .data_in(rx_data),
+    .valid_in(rx_valid),
+    .ready_out(tx_start),
+    .data_out(tx_data),
+    .valid_out(valid_out),
+    .ready_in()  // back-pressure from TX
+);
+
+// UART TX
+uart_tx #(
+    .BAUD_RATE(BAUD_RATE)
+) tx (
+    .clk(clk),
+    .rst(rst),
+    .tx_start(tx_start),
+    .tx_data(tx_data),
+    .RsTx(RsTx),
+    .busy(busy)
+);
+
+assign tx_start = (rst || busy || !valid_out || !btnD) ? 0 : 1; 
+
+assign led[11] = rst;
+assign led[10] = busy;
+assign led[9] = !valid_out;
+assign led[8] = tx_start;
+
+//// Detect rising edge of btnD
+//always @(posedge clk) begin
+//    if (rst) begin
+//        btnD_prev <= 0;
+//        send_trigger <= 0;
+//    end
+//    else begin
+//        btnD_prev <= btnD;
+//        if (btnD & ~btnD_prev) // rising edge detected
+//            send_trigger <= 1;
+//        else if (busy)
+//            send_trigger <= 0; // clear trigger once TX accepts it
+//    end
+//end
+
+endmodule
