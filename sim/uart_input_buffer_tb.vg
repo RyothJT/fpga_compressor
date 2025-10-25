@@ -1,0 +1,90 @@
+`timescale 1ns / 1ps
+
+module uart_input_buffer_tb();
+
+localparam BAUD_RATE = 100_000_000 / 160;
+
+reg clk = 1;
+reg rst = 1;
+reg RsRx = 1;
+reg ready_out = 0;
+
+wire [7:0] rx_data;
+wire valid;
+wire baud_tick;
+
+integer sim_counter = 0;
+
+uart_baud_gen #(
+    .BAUD_RATE(BAUD_RATE)
+) baud_gen (
+    .clk(clk),
+    .rst(rst),
+    .baud_tick(baud_tick)
+);
+
+uart_rx #(
+    .ENABLE_ERRORS(1),
+    .BAUD_RATE(BAUD_RATE)
+) rx (
+    .clk(clk),
+    .rst(rst),
+    .RsRx(RsRx),
+    .rx_data(rx_data),
+    .valid_out(valid),
+    .status(status)
+);
+
+uart_input_buffer uut (
+    .clk(clk),
+    .rst(rst),
+    .data_in(rx_data),
+    .valid_in(valid),
+    .ready_out(ready_out),
+    .data_out(),
+    .valid_out(),
+    .ready_in()
+);
+
+task send_uart_byte;
+    input [7:0] byte;
+    integer i;
+    begin
+        // Start bit
+        RsRx = 0;
+        @(posedge baud_tick);
+        
+        // Data bits (LSB first)
+        for (i = 0; i < 8; i = i + 1) begin
+            RsRx = byte[i];
+            @(posedge baud_tick);
+        end
+
+        // Stop bit
+        RsRx = 1;
+        @(posedge baud_tick);
+    end
+endtask
+
+reg [9:0] bit_index = 0;
+
+always #5 clk = !clk;
+
+initial begin
+    #5000;
+    rst = 0;
+    #5000;
+    repeat(5) begin
+        send_uart_byte(bit_index[7:0]);
+        bit_index = bit_index + 1;
+    end
+    ready_out = 1;
+    repeat(14) begin
+        send_uart_byte(bit_index[7:0]);
+        bit_index = bit_index + 1;
+    end
+    #50000;
+    $finish;
+end
+
+endmodule
