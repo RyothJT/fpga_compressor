@@ -10,7 +10,7 @@ module uart_tx #(
     input  wire tx_start,
     input  wire [(DATA_BITS - 1):0] tx_data,
     output reg  RsTx,
-    output wire busy
+    output reg busy
 );
 
 wire baud_tick;
@@ -27,13 +27,12 @@ uart_baud_gen #(
 reg [2:0] state;
 reg [3:0] bit_counter;
 reg [(DATA_BITS - 1):0] latched_data;
+reg latched;
 
 localparam IDLE  = 3'b000,
            START = 3'b001,
            DATA  = 3'b010,
            STOP  = 3'b011;
-
-assign busy = (state != IDLE);
 
 always @(posedge clk) begin
     if (rst) begin
@@ -41,17 +40,30 @@ always @(posedge clk) begin
         RsTx         <= 1;
         bit_counter  <= 0;
         latched_data <= 0;
+        busy <= 1;
+        latched <= 0;
     end else begin
         case (state)
             IDLE: begin
                 RsTx <= 1;
+                
                 if (tx_start) begin
                     latched_data <= tx_data;
-                    state        <= START;
+                    latched <= 1;
+                    busy <= 1;
+                end
+                else if (!latched) busy <= 0;
+                
+                if (baud_tick & latched) begin
+                    latched <= 0;
+                    state <= START;
                 end
             end
-
+            
             START: begin
+                // We aren't aligned to baud tick yet! So this period can be shorter than expected
+                // Changed IDLE if statement to include baud_tick
+                // This means a single tick of tx_start won't start the transmission
                 RsTx <= 0;
                 if (baud_tick) begin
                     state       <= DATA;
@@ -71,9 +83,7 @@ always @(posedge clk) begin
             STOP: begin
                 RsTx <= 1;
                 // Deassert busy immediately after stop bit
-                if (baud_tick) begin
-                    state <= IDLE;  // Ends exactly on the stop bit
-                end
+                state <= IDLE;  // Ends exactly on the stop bit
             end
         endcase
     end
