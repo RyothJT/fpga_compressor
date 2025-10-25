@@ -30,7 +30,7 @@ uart_rx #(
     .rst(btnC),
     .RsRx(RsRx),
     .rx_data(led[7:0]),
-    .valid(led[12]),
+    .valid_out(led[12]),
     .status(led[15:13])
 );
 
